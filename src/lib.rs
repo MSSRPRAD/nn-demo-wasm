@@ -18,18 +18,19 @@ fn matadd(
     matrix_b: &Vec<Vec<f64>>,
     rows: usize,
     cols: usize,
-    ) -> Vec<Vec<f64>> {
-    let mut result = Vec::<Vec<f64>>::new();
-    for row in 0..rows {
-        let mut res_row = Vec::<f64>::new();
-        for col in 0..cols {
-            res_row.push(matrix_a[row][col]+matrix_b[row][col]);
-        }
-        result.push(res_row);
-    }
-    result
-}
-#[no_mangle]
+) -> Vec<Vec<f64>> {
+    matrix_a
+        .iter()
+        .zip(matrix_b.iter())
+        .map(|(row_a, row_b)| {
+            row_a
+                .iter()
+                .zip(row_b.iter())
+                .map(|(&a, &b)| a + b)
+                .collect::<Vec<f64>>()
+        })
+        .collect()
+}#[no_mangle]
 fn matmul(
     matrix_a: &Vec<Vec<f64>>,
     rows_a: usize,
@@ -63,6 +64,7 @@ pub trait Layer {
     fn backward(&self, output_errors: &Vec<f64>) -> Vec<Vec<f64>>;
 }
 #[no_mangle]
+#[derive(Clone, Copy, Debug)]
 enum Activation {
     Tanh = 0,
     Sigmoid = 1,
@@ -82,41 +84,41 @@ impl Activation {
     }
 }
 #[no_mangle]
-fn transpose(vector: Vec<Vec<f64>>, rows: usize, cols: usize) -> Vec<Vec<f64>> {
-   let mut result: Vec<Vec<f64>> = vec![vec![0.0; rows]; cols];
-   for i in 0..cols {
-       for j in 0..rows {
-           result[i][j] = vector[j][i]
-       }
-   }
-   result
+fn transpose(matrix: Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let rows = matrix.len();
+    let cols = matrix[0].len();
+
+    let mut result: Vec<Vec<f64>> = vec![vec![0.0; rows]; cols];
+
+    for (i, row) in matrix.into_iter().enumerate() {
+        for (j, value) in row.into_iter().enumerate() {
+            result[j][i] = value;
+        }
+    }
+
+    result
 }
 #[no_mangle]
-fn apply_activation(vector: &[f64], len: usize, activation: Activation) -> Vec<f64> {
-    let mut result = vec![0.0; len];
+fn apply_activation(vector: &Vec<Vec<f64>>, rows: usize, cols: usize, activation: Activation) -> Vec<Vec<f64>> {
+    let mut result = vec![vec![0.0; cols]; rows];
 
-    match activation {
-        Activation::Tanh => {
-            for (i, &value) in vector.iter().enumerate() {
-                result[i] = value.tanh();
-            }
-        }
-        Activation::Sigmoid => {
-            for (i, &value) in vector.iter().enumerate() {
-                result[i] = 1.0 / (1.0 + (-value).exp());
-            }
-        }
-        Activation::Relu => {
-            for (i, &value) in vector.iter().enumerate() {
-                result[i] = value.max(0.0);
-            }
-        }
-        Activation::Softmax => {
-            let max_value = vector.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-            let exp_sum: f64 = vector.iter().map(|&x| (x - max_value).exp()).sum();
-
-            for (i, &value) in vector.iter().enumerate() {
-                result[i] = (value - max_value).exp() / exp_sum;
+    for i in 0..rows {
+        for j in 0..cols {
+            match activation {
+                Activation::Tanh => {
+                    result[i][j] = vector[i][j].tanh();
+                }
+                Activation::Sigmoid => {
+                    result[i][j] = 1.0 / (1.0 + (-vector[i][j]).exp());
+                }
+                Activation::Relu => {
+                    result[i][j] = vector[i][j].max(0.0);
+                }
+                Activation::Softmax => {
+                    let max_value = vector[i].iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                    let exp_sum: f64 = vector[i].iter().map(|&x| (x - max_value).exp()).sum();
+                    result[i][j] = (vector[i][j] - max_value).exp() / exp_sum;
+                }
             }
         }
     }
@@ -159,6 +161,7 @@ impl DenseLayer {
 impl Layer for DenseLayer {
     fn forward(&mut self, input: &Vec<f64>) -> Vec<Vec<f64>> {
         self.activations = matadd(&matmul(&self.inputs, 1, self.input_size, &self.weights, self.input_size, self.output_size).unwrap(), &self.biases, 1, self.input_size);
+        self.outputs = apply_activation(&self.activations, 1, self.output_size, self.activation);
         self.outputs.clone()
     }
     fn backward(&self, output_errors: &Vec<f64>) -> Vec<Vec<f64>> {
