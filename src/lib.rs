@@ -14,13 +14,18 @@ mod tests {
 }
 #[no_mangle]
 fn matadd(
-    matrix_a: &Vec<f64>,
-    matrix_b: &Vec<f64>,
-    len: usize,
-    ) -> Vec<f64> {
-    let mut result = Vec::new();
-    for i in 0..len {
-        result.push(matrix_a[i]+matrix_b[i]);
+    matrix_a: &Vec<Vec<f64>>,
+    matrix_b: &Vec<Vec<f64>>,
+    rows: usize,
+    cols: usize,
+    ) -> Vec<Vec<f64>> {
+    let mut result = Vec::<Vec<f64>>::new();
+    for row in 0..rows {
+        let mut res_row = Vec::<f64>::new();
+        for col in 0..cols {
+            res_row.push(matrix_a[row][col]+matrix_b[row][col]);
+        }
+        result.push(res_row);
     }
     result
 }
@@ -54,8 +59,8 @@ fn matmul(
 
 #[no_mangle]
 pub trait Layer {
-    fn forward(&self, input: &Vec<f64>) -> Vec<f64>;
-    fn backward(&self, output_errors: &Vec<f64>) -> Vec<f64>;
+    fn forward(&mut self, input: &Vec<f64>) -> Vec<Vec<f64>>;
+    fn backward(&self, output_errors: &Vec<f64>) -> Vec<Vec<f64>>;
 }
 #[no_mangle]
 enum Activation {
@@ -122,10 +127,10 @@ fn apply_activation(vector: &[f64], len: usize, activation: Activation) -> Vec<f
 #[no_mangle]
 pub struct DenseLayer {
     weights: Vec<Vec<f64>>,
-    biases: Vec<f64>,
-    inputs: Vec<f64>,
-    outputs: Vec<f64>,
-    activations: Vec<f64>,
+    biases: Vec<Vec<f64>>,
+    inputs: Vec<Vec<f64>>,
+    outputs: Vec<Vec<f64>>,
+    activations: Vec<Vec<f64>>,
     input_size: usize,
     output_size: usize,
     lr: f64,
@@ -139,12 +144,12 @@ impl DenseLayer {
             input_size,
             output_size,
             lr,
-            inputs: vec![0.0; input_size],
-            outputs: vec![0.0; output_size],
-            activations: vec![0.0; output_size],
+            inputs: vec![vec![0.0; input_size]],
+            outputs: vec![vec![0.0; output_size]],
+            activations: vec![vec![0.0; output_size]],
             activation: Activation::from_int(activation).unwrap(),
             weights: vec![vec![0.0; output_size]; input_size],
-            biases: vec![0.0; output_size],
+            biases: vec![vec![0.0; output_size]],
         }
     }
 }
@@ -152,11 +157,11 @@ impl DenseLayer {
 // output: 1x2
 // weights: 10x2
 impl Layer for DenseLayer {
-    fn forward(&self, input: &Vec<f64>) -> Vec<f64> {
-        self.activations = matadd(&matmul(&self.inputs, 1, self.input_size, &self.weights, self.input_size, self.output_size).unwrap()[0], &self.biases, self.input_size);
+    fn forward(&mut self, input: &Vec<f64>) -> Vec<Vec<f64>> {
+        self.activations = matadd(&matmul(&self.inputs, 1, self.input_size, &self.weights, self.input_size, self.output_size).unwrap(), &self.biases, 1, self.input_size);
         self.outputs.clone()
     }
-    fn backward(&self, output_errors: &Vec<f64>) -> Vec<f64> {
+    fn backward(&self, output_errors: &Vec<f64>) -> Vec<Vec<f64>> {
         self.inputs.clone()
     }
 }
