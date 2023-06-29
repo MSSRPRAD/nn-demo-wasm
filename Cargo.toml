@@ -1,0 +1,12 @@
+[package]
+name = "nn-demo-wasm"
+version = "0.1.0"
+edition = "2021"
+authors = ["Malladi Pradyumna <f20210367@hyderabad.bits-pilani.ac.in>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[lib]
+crate-type = ["cdylib"]
