@@ -53,7 +53,7 @@ fn matsub_lr(
             row_a
                 .iter()
                 .zip(row_b.iter())
-                .map(|(&a, &b)| a - lr*b)
+                .map(|(&a, &b)| a - lr * b)
                 .collect::<Vec<f64>>()
         })
         .collect()
@@ -117,6 +117,7 @@ enum Activation {
     Sigmoid = 1,
     Relu = 2,
     Softmax = 3,
+    BinaryActivation = 4,
 }
 
 impl Activation {
@@ -126,6 +127,7 @@ impl Activation {
             1 => Some(Activation::Sigmoid),
             2 => Some(Activation::Relu),
             3 => Some(Activation::Softmax),
+            4 => Some(Activation::BinaryActivation),
             _ => None,
         }
     }
@@ -171,6 +173,9 @@ fn apply_activation(
                     let exp_sum: f64 = vector[i].iter().map(|&x| (x - max_value).exp()).sum();
                     result[i][j] = (vector[i][j] - max_value).exp() / exp_sum;
                 }
+                Activation::BinaryActivation => {
+                    result[i][j] = if vector[i][j] > 0.5 { 1.0 } else { 0.0 };
+                }
             }
         }
     }
@@ -200,7 +205,7 @@ fn activation_derivative(
                 Activation::Relu => {
                     result[i][j] = if vector[i][j] > 0.0 { 1.0 } else { 0.0 };
                 }
-                Activation::Softmax => {
+                Activation::Softmax | _=> {
                     panic!("Derivative of softmax function is not defined.");
                 }
             }
@@ -209,7 +214,6 @@ fn activation_derivative(
 
     result
 }
-
 
 pub struct DenseLayer {
     weights: Vec<Vec<f64>>,
@@ -224,6 +228,7 @@ pub struct DenseLayer {
     lr: f64,
     activation: Activation,
 }
+
 impl DenseLayer {
     // weights is an array of input_size rows and output_size columns
     // i-th row j-th column is the weight connecting i-th output neuron to j-th input neuron
@@ -246,6 +251,7 @@ impl DenseLayer {
 // input: 1x10
 // output: 1x2
 // weights: 10x2
+
 impl Layer for DenseLayer {
     fn forward(&mut self, _input: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
         self.activations = matadd(
@@ -288,18 +294,134 @@ impl Layer for DenseLayer {
             1,
             self.input_size,
         );
-        // self.input_errors = ac.relu_der(self.inputs)*(np.dot(self.weights, output_errors.T)).T
-        // self.input_errors = activation_derivative(self.inputs, rows, cols, activation)
-        //  # Calculate the error in weights for this layer
-    // weight_errors = np.dot(self.inputs.T, output_errors)
-    // # Update the weights
-    // self.weights -= lr*weight_errors
-    // # Update the bias
-    // self.bias -= lr*output_errors
-    // return self.input_errors
-        let weight_errors = matmul(&transpose(&self.inputs), 1, self.input_size, &output_errors, 1, self.output_size).unwrap();
-        self.weights = matsub_lr(&self.weights,&weight_errors, self.input_size, self.output_size, self.lr);
-        self.biases = matsub_lr(&self.biases, &output_errors, 1, self.output_size, self.lr); 
+
+        let weight_errors = matmul(
+            &transpose(&self.inputs),
+            1,
+            self.input_size,
+            &output_errors,
+            1,
+            self.output_size,
+        )
+        .unwrap();
+        self.weights = matsub_lr(
+            &self.weights,
+            &weight_errors,
+            self.input_size,
+            self.output_size,
+            self.lr,
+        );
+        self.biases = matsub_lr(&self.biases, &output_errors, 1, self.output_size, self.lr);
         self.input_errors.clone()
+    }
+}
+
+pub struct NeuralNetwork {
+    layers: Vec<Box<dyn Layer>>,
+    loss: Vec<f64>,
+}
+#[no_mangle]
+pub fn mean_square_error(expected: &Vec<Vec<f64>>, predicted: &Vec<Vec<f64>>) -> f64 {
+    let mut mse = 0.0;
+
+    for (exp_row, pred_row) in expected.iter().zip(predicted.iter()) {
+        for (exp_val, pred_val) in exp_row.iter().zip(pred_row.iter()) {
+            let error = exp_val - pred_val;
+            mse += error * error;
+        }
+    }
+
+    mse /= (expected.len() * expected[0].len()) as f64;
+    mse
+}
+
+fn are_equal<T: PartialEq>(a: &Vec<Vec<T>>, b: &Vec<Vec<T>>) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+
+    for (row_a, row_b) in a.iter().zip(b.iter()) {
+        if row_a.len() != row_b.len() {
+            return false;
+        }
+
+        for (elem_a, elem_b) in row_a.iter().zip(row_b.iter()) {
+            if elem_a != elem_b {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
+impl NeuralNetwork {
+    pub fn new() -> NeuralNetwork {
+        NeuralNetwork { layers: Vec::new(), loss: Vec::new() }
+    }
+
+    pub fn add<F>(mut self, layer: Box<dyn Layer>) -> NeuralNetwork {
+        self.layers.push(layer);
+        self
+    }
+
+    pub fn forward(&mut self, input: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+        let mut output = input.clone();
+        for layer in &mut self.layers {
+            output = layer.forward(&output);
+        }
+        output
+    }
+
+    pub fn fit(
+        &mut self,
+        x_train: &Vec<Vec<f64>>,
+        y_train: &Vec<Vec<f64>>,
+        epochs: usize,
+    ) {
+
+        for i in 0..epochs {
+            let mut misclassifications = 0;
+            println!("epochs: {}", i);
+            // Go through all the images
+            for j in 0..x_train.len() {
+                let mut errors: Vec<Vec<f64>> = Vec::new();
+                
+                // Forward propagate the values
+                let mut output = Vec::new();
+                output.push(x_train[j].clone());
+                for layer in &mut self.layers {
+                    output = layer.forward(&output);
+                }
+
+                // Calculate the error at the end
+                for k in 0..output.len() {
+                    errors[0].push(output[0][k] - y_train[j][k]);
+                }
+
+                // Store the loss
+                // let metrics = Metrics::new(&output, &y_train[j]);
+                let mut actual = Vec::new();
+                actual.push(y_train[j].clone());
+                self.loss.push(mean_square_error(&output, &actual));
+                let predicted = apply_activation(&actual, 1, y_train[0].len(), Activation::BinaryActivation);
+                
+                if !are_equal(&predicted, &actual) {
+                    misclassifications += 1;
+                }
+
+                if j % 500 == 0 {
+                    println!("images processed: {}", j);
+                    println!("last loss: {:?}", self.loss.last());
+                }
+
+                // Backpropagate the errors
+                for layer in self.layers.iter_mut().rev() {
+                    errors = layer.backward(&errors);
+                }
+            }
+
+            println!("misclassifications: {}", misclassifications);
+        }
     }
 }
