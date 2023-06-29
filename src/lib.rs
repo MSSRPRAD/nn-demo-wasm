@@ -2,8 +2,8 @@
 fn matadd(
     matrix_a: &Vec<Vec<f64>>,
     matrix_b: &Vec<Vec<f64>>,
-    rows: usize,
-    cols: usize,
+    _rows: usize,
+    _cols: usize,
 ) -> Vec<Vec<f64>> {
     matrix_a
         .iter()
@@ -22,8 +22,8 @@ fn matadd(
 fn matsub(
     matrix_a: &Vec<Vec<f64>>,
     matrix_b: &Vec<Vec<f64>>,
-    rows: usize,
-    cols: usize,
+    _rows: usize,
+    _cols: usize,
 ) -> Vec<Vec<f64>> {
     matrix_a
         .iter()
@@ -42,8 +42,8 @@ fn matsub(
 fn matsub_lr(
     matrix_a: &Vec<Vec<f64>>,
     matrix_b: &Vec<Vec<f64>>,
-    rows: usize,
-    cols: usize,
+    _rows: usize,
+    _cols: usize,
     lr: f64,
 ) -> Vec<Vec<f64>> {
     matrix_a
@@ -63,8 +63,8 @@ fn matsub_lr(
 fn pairwisemul(
     matrix_a: &Vec<Vec<f64>>,
     matrix_b: &Vec<Vec<f64>>,
-    rows: usize,
-    cols: usize,
+    _rows: usize,
+    _cols: usize,
 ) -> Vec<Vec<f64>> {
     matrix_a
         .iter()
@@ -248,7 +248,7 @@ impl DenseLayer {
 // output: 1x2
 // weights: 10x2
 impl Layer for DenseLayer {
-    fn forward(&mut self, input: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    fn forward(&mut self, _input: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
         self.activations = matadd(
             &matmul(
                 &self.inputs,
