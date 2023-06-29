@@ -106,12 +106,11 @@ fn matmul(
     Some(result)
 }
 
-#[no_mangle]
 pub trait Layer {
     fn forward(&mut self, input: &Vec<Vec<f64>>) -> Vec<Vec<f64>>;
     fn backward(&mut self, output_errors: &Vec<Vec<f64>>) -> Vec<Vec<f64>>;
 }
-#[no_mangle]
+
 #[derive(Clone, Copy, Debug)]
 enum Activation {
     Tanh = 0,
@@ -211,7 +210,7 @@ fn activation_derivative(
     result
 }
 
-#[no_mangle]
+
 pub struct DenseLayer {
     weights: Vec<Vec<f64>>,
     biases: Vec<Vec<f64>>,
