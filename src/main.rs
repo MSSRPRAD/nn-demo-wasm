@@ -7,7 +7,7 @@ fn main() {
         vec![1.00, 1.00],
     ];
     let y_train: Vec<Vec<f64>> = vec![vec![0.00], vec![1.00], vec![1.00], vec![0.00]];
-
+   
     let mut model = NeuralNetwork::new();
     let layer: Box<dyn Layer> = Box::new(DenseLayer::new(2, 50, 0.01, 1));
     model.add::<Box<dyn Layer>>(layer);
@@ -21,5 +21,5 @@ fn main() {
         }
     };
 
-    model.fit(&x_train, &y_train, 100, print_weights_callback);
+    model.fit(&x_train, &y_train, 100000, 1, print_weights_callback);
 }

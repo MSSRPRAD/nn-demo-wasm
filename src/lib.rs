@@ -1,6 +1,19 @@
 // lib.rs
 pub mod nn {
     #[no_mangle]
+    pub fn mul(matrix_a: &Vec<Vec<f64>>, num: f64) -> Vec<Vec<f64>> {
+        let mut result = Vec::with_capacity(matrix_a.len());
+        for row in matrix_a {
+            let mut new_row = Vec::with_capacity(row.len());
+            for &value in row {
+                new_row.push(value * num);
+            }
+            result.push(new_row);
+        }
+        result
+    }
+
+    #[no_mangle]
     pub fn matadd(
         matrix_a: &Vec<Vec<f64>>,
         matrix_b: &Vec<Vec<f64>>,
@@ -214,7 +227,7 @@ pub mod nn {
                         result[i][j] = if vector[i][j] > 0.0 { 1.0 } else { 0.0 };
                     }
                     Activation::Softmax | _ => {
-                        panic!("Derivative of softmax function is not defined.");
+                        panic!("Derivative is either not defined or implemented!");
                     }
                 }
             }
@@ -294,8 +307,7 @@ pub mod nn {
                 1,
                 self.input_size,
             );
-            println!("self.inputs: {:?}", self.inputs);
-            println!("self.activations: {:?}", self.activations);
+
             self.outputs =
                 apply_activation(&self.activations, 1, self.output_size, self.activation);
             println!("self.outputs: {:?}", self.outputs);
@@ -319,7 +331,7 @@ pub mod nn {
             );
 
             self.input_errors = pairwisemul(
-                &activation_derivative(&self.inputs, 1, self.output_size, self.activation),
+                &activation_derivative(&self.inputs, 1, self.input_size, self.activation),
                 &intermediate,
                 1,
                 self.input_size,
@@ -327,8 +339,8 @@ pub mod nn {
 
             let weight_errors = matmul(
                 &transpose(&self.inputs),
-                1,
                 self.input_size,
+                1,
                 &output_errors,
                 1,
                 self.output_size,
@@ -396,11 +408,6 @@ pub mod nn {
             self.layers.push(layer);
             self
         }
-        // pub fn add<F>(mut self, layer: Box<dyn Layer>) -> NeuralNetwork {
-        //     self.layers.push(layer);
-        //     self
-        // }
-
         pub fn forward(&mut self, input: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
             let mut output = input.clone();
             for layer in &mut self.layers {
@@ -414,6 +421,7 @@ pub mod nn {
             x_train: &Vec<Vec<f64>>,
             y_train: &Vec<Vec<f64>>,
             epochs: usize,
+            interval: usize,
             callback: F,
         ) where
             F: Fn(&NeuralNetwork),
@@ -423,8 +431,8 @@ pub mod nn {
                 println!("epochs: {}", i);
                 // Go through all the images
                 for j in 0..x_train.len() {
-                    let mut errors: Vec<Vec<f64>> = vec![vec![0.00; y_train[0].len()]];
-
+                    let mut errors: Vec<Vec<f64>> = vec![Vec::new()];
+                    println!("errors: {:?}", errors);
                     // Forward propagate the values
                     let mut output = Vec::new();
                     output.push(x_train[j].clone());
@@ -437,7 +445,7 @@ pub mod nn {
                     for k in 0..output.len() {
                         errors[0].push(output[0][k] - y_train[j][k]);
                     }
-
+                    println!("errors: {:?}", errors);
                     // Store the loss
                     // let metrics = Metrics::new(&output, &y_train[j]);
                     let mut actual = Vec::new();
@@ -454,12 +462,11 @@ pub mod nn {
                         misclassifications += 1;
                     }
 
-                    if j % 500 == 0 {
+                    if j % interval == 0 {
                         callback(self);
                         println!("images processed: {}", j);
                         println!("last loss: {:?}", self.loss.last());
                     }
-
                     // Backpropagate the errors
                     for layer in self.layers.iter_mut().rev() {
                         errors = layer.backward(&errors);
