@@ -1,5 +1,6 @@
 // lib.rs
 pub mod nn {
+
     #[no_mangle]
     pub fn mul(matrix_a: &Vec<Vec<f64>>, num: f64) -> Vec<Vec<f64>> {
         let mut result = Vec::with_capacity(matrix_a.len());
@@ -226,6 +227,9 @@ pub mod nn {
                     Activation::Relu => {
                         result[i][j] = if vector[i][j] > 0.0 { 1.0 } else { 0.0 };
                     }
+                    Activation::Identity => {
+                        result[i][j] = 0.0;
+                    }
                     Activation::Softmax | _ => {
                         panic!("Derivative is either not defined or implemented!");
                     }
@@ -235,6 +239,7 @@ pub mod nn {
 
         result
     }
+
     #[derive(Clone, Debug)]
     pub struct DenseLayer {
         weights: Vec<Vec<f64>>,
@@ -249,10 +254,9 @@ pub mod nn {
         lr: f64,
         activation: Activation,
     }
-
     impl DenseLayer {
         // weights is an array of input_size rows and output_size columns
-        // i-th row j-th column is the weight connecting i-th output neuron to j-th input neuron
+        // i-th row j-th column is the weight connecting i-th input neuron to j-th output neuron
         pub fn new(
             input_size: usize,
             output_size: usize,
@@ -289,10 +293,10 @@ pub mod nn {
             println!("Input Errors:");
             println!("{:?}", self.input_errors);
         }
-
+        // [1,IS]x[IS,OS] = [1,OS]
         fn forward(&mut self, input: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
             self.inputs = input.clone();
-            println!("starting forward!");
+            // println!("starting forward!");
             self.activations = matadd(
                 &matmul(
                     &self.inputs,
@@ -310,7 +314,7 @@ pub mod nn {
 
             self.outputs =
                 apply_activation(&self.activations, 1, self.output_size, self.activation);
-            println!("self.outputs: {:?}", self.outputs);
+            // println!("self.outputs: {:?}", self.outputs);
             self.outputs.clone()
         }
         // self.inputs: 1x256
@@ -429,23 +433,23 @@ pub mod nn {
             for i in 0..epochs {
                 let mut misclassifications = 0;
                 println!("epochs: {}", i);
-                // Go through all the images
+                // Go through all the tuples
                 for j in 0..x_train.len() {
                     let mut errors: Vec<Vec<f64>> = vec![Vec::new()];
-                    println!("errors: {:?}", errors);
+                    // println!("errors: {:?}", errors);
                     // Forward propagate the values
                     let mut output = Vec::new();
                     output.push(x_train[j].clone());
                     for layer in &mut self.layers {
                         output = layer.forward(&output);
                     }
-                    println!("output after all the layers: {:?}", output);
+                    // println!("output after all the layers: {:?}", output);
 
                     // Calculate the error at the end
                     for k in 0..output.len() {
                         errors[0].push(output[0][k] - y_train[j][k]);
                     }
-                    println!("errors: {:?}", errors);
+                    // println!("errors: {:?}", errors);
                     // Store the loss
                     // let metrics = Metrics::new(&output, &y_train[j]);
                     let mut actual = Vec::new();
@@ -457,12 +461,13 @@ pub mod nn {
                         y_train[0].len(),
                         Activation::BinaryActivation,
                     );
-
+                    // println!("predicted: {:?}", predicted);
+                    // println!("actual: {:?}", actual);
                     if !are_equal(&predicted, &actual) {
                         misclassifications += 1;
                     }
 
-                    if j % interval == 0 {
+                    if (j + 1) % interval == 0 {
                         callback(self);
                         println!("images processed: {}", j);
                         println!("last loss: {:?}", self.loss.last());

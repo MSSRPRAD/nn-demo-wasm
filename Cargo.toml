@@ -8,3 +8,6 @@ authors = ["Malladi Pradyumna <f20210367@hyderabad.bits-pilani.ac.in>"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
+
+[dependencies]
+csv = "1.2.2"
