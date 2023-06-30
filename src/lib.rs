@@ -320,6 +320,7 @@ pub mod nn {
         // self.inputs: 1x256
         // self.weights:
         fn backward(&mut self, output_errors: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+            // println!("starting backward!");
             self.output_errors = output_errors.clone();
             // [IS,OS]x[OS,1] = [IS,1]
             let intermediate = transpose(
@@ -435,7 +436,7 @@ pub mod nn {
                 println!("epochs: {}", i);
                 // Go through all the tuples
                 for j in 0..x_train.len() {
-                    let mut errors: Vec<Vec<f64>> = vec![Vec::new()];
+                    let mut errors: Vec<Vec<f64>> = vec![vec![0.0; y_train[0].len()]];
                     // println!("errors: {:?}", errors);
                     // Forward propagate the values
                     let mut output = Vec::new();
@@ -470,7 +471,7 @@ pub mod nn {
                     if (j + 1) % interval == 0 {
                         callback(self);
                         println!("images processed: {}", j);
-                        println!("last loss: {:?}", self.loss.last());
+                        println!("loss: {:?}", self.loss);
                     }
                     // Backpropagate the errors
                     for layer in self.layers.iter_mut().rev() {

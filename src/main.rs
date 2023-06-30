@@ -61,15 +61,17 @@ fn read_csv_file(path: &str) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>), Box<dyn E
 
 fn main() {
     let (y_train, x_train) = read_csv_file("./mnist/mnist_train.csv").unwrap();
-    println!("x_train[0]: {:?}", x_train[0]);
-    println!("y_train[0]: {:?}", y_train[0]);
-    println!("x_train[1]: {:?}", x_train[1]);
-    println!("y_train[1]: {:?}", y_train[1]);
+    // println!("len: {:?}", y_train[0].len());
+    // println!("len: {:?}", x_train[0].len());
+    // println!("x_train[0]: {:?}", x_train[0]);
+    // println!("y_train[0]: {:?}", y_train[0]);
+    // println!("x_train[1]: {:?}", x_train[1]);
+    // println!("y_train[1]: {:?}", y_train[1]);
 
     let mut model = NeuralNetwork::new();
-    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 50, 0.001, 2));
+    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 1000, 0.001, 1));
     model.add::<Box<dyn Layer>>(layer);
-    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(50, 10, 0.001, 5));
+    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(1000, 10, 0.001, 1));
     model.add::<Box<dyn Layer>>(layer);
 
     // Define the callback function to print the weights
