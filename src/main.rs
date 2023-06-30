@@ -86,7 +86,7 @@ fn main() {
     //
     let epochs = 50;
     let interval = 30000;
-    let lr = 0.01;
+    let lr = 0.1;
     let mut model = NeuralNetwork::new();
     let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 32, lr, 1));
     model.add::<Box<dyn Layer>>(layer);
