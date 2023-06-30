@@ -436,34 +436,35 @@ pub mod nn {
                 println!("epochs: {}", i);
                 // Go through all the tuples
                 for j in 0..x_train.len() {
-                    let mut errors: Vec<Vec<f64>> = vec![vec![0.0; y_train[0].len()]];
+                    let actual = vec![y_train[j].clone()]; 
+                    let mut errors: Vec<Vec<f64>> = vec![vec![0.0; actual[0].len()]];
+
                     // println!("errors: {:?}", errors);
                     // Forward propagate the values
                     let mut output = Vec::new();
+
                     output.push(x_train[j].clone());
+                    // println!("output initially: {:?}", output);
                     for layer in &mut self.layers {
                         output = layer.forward(&output);
                     }
-                    // println!("output after all the layers: {:?}", output);
-
+                    
                     // Calculate the error at the end
-                    for k in 0..output.len() {
-                        errors[0].push(output[0][k] - y_train[j][k]);
-                    }
-                    // println!("errors: {:?}", errors);
+                    errors = matsub(&output, &actual, actual.len(), actual[0].len());
+
+                    println!("errors: {:?}", errors);
                     // Store the loss
-                    // let metrics = Metrics::new(&output, &y_train[j]);
-                    let mut actual = Vec::new();
-                    actual.push(y_train[j].clone());
+
                     self.loss.push(mean_square_error(&output, &actual));
                     let predicted = apply_activation(
-                        &actual,
-                        1,
-                        y_train[0].len(),
+                        &output,
+                        actual.len(),
+                        actual[0].len(),
                         Activation::BinaryActivation,
                     );
-                    // println!("predicted: {:?}", predicted);
-                    // println!("actual: {:?}", actual);
+                    println!("output: {:?}", output);
+                    println!("predicted: {:?}", predicted);
+                    println!("actual: {:?}", actual);
                     if !are_equal(&predicted, &actual) {
                         misclassifications += 1;
                     }
@@ -475,11 +476,12 @@ pub mod nn {
                     }
                     // Backpropagate the errors
                     for layer in self.layers.iter_mut().rev() {
+                        println!("errors: {:?}", errors);
                         errors = layer.backward(&errors);
                     }
                 }
 
-                println!("misclassifications: {}", misclassifications);
+                println!("epoch: {} | misclassifications: {}", i, misclassifications);
             }
         }
     }
