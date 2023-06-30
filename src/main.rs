@@ -84,9 +84,9 @@ fn main() {
     // println!("x_train[1]: {:?}", x_train[1]);
     // println!("y_train[1]: {:?}", y_train[1]);
     //
-    let epochs = 10;
-    let interval = 10000;
-    let lr = 0.1;
+    let epochs = 50;
+    let interval = 30000;
+    let lr = 0.01;
     let mut model = NeuralNetwork::new();
     let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 32, lr, 1));
     model.add::<Box<dyn Layer>>(layer);
