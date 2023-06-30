@@ -351,6 +351,8 @@ pub mod nn {
                 self.output_size,
             )
             .unwrap();
+            // println!("weight errors: {:?}", weight_errors);
+            // let initial_weights = self.weights.clone();
             self.weights = matsub_lr(
                 &self.weights,
                 &weight_errors,
@@ -358,6 +360,8 @@ pub mod nn {
                 self.output_size,
                 self.lr,
             );
+            // println!("weights: {:?}", self.weights);
+            // println!("difference in weights: {:?}", matsub(&initial_weights, &self.weights, self.input_size, self.output_size));
             self.biases = matsub_lr(&self.biases, &output_errors, 1, self.output_size, self.lr);
             self.input_errors.clone()
         }
@@ -452,7 +456,7 @@ pub mod nn {
                     // Calculate the error at the end
                     errors = matsub(&output, &actual, actual.len(), actual[0].len());
 
-                    println!("errors: {:?}", errors);
+                    // println!("errors: {:?}", errors);
                     // Store the loss
 
                     self.loss.push(mean_square_error(&output, &actual));
@@ -462,9 +466,9 @@ pub mod nn {
                         actual[0].len(),
                         Activation::BinaryActivation,
                     );
-                    println!("output: {:?}", output);
-                    println!("predicted: {:?}", predicted);
-                    println!("actual: {:?}", actual);
+                    // println!("output: {:?}", output);
+                    // println!("predicted: {:?}", predicted);
+                    // println!("actual: {:?}", actual);
                     if !are_equal(&predicted, &actual) {
                         misclassifications += 1;
                     }
@@ -472,13 +476,14 @@ pub mod nn {
                     if (j + 1) % interval == 0 {
                         callback(self);
                         println!("images processed: {}", j);
-                        println!("loss: {:?}", self.loss);
+                        println!("loss: {:?}", self.loss.last());
                     }
                     // Backpropagate the errors
                     for layer in self.layers.iter_mut().rev() {
-                        println!("errors: {:?}", errors);
+                        // println!("errors: {:?}", errors);
                         errors = layer.backward(&errors);
                     }
+                    // println!("first input errors: {:?}", errors);
                 }
 
                 println!("epoch: {} | misclassifications: {}", i, misclassifications);

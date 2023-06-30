@@ -84,10 +84,13 @@ fn main() {
     // println!("x_train[1]: {:?}", x_train[1]);
     // println!("y_train[1]: {:?}", y_train[1]);
     //
+    let epochs = 10;
+    let interval = 10000;
+    let lr = 0.1;
     let mut model = NeuralNetwork::new();
-    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 20, 0.001, 1));
+    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 32, lr, 1));
     model.add::<Box<dyn Layer>>(layer);
-    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(20, 10, 0.001, 1));
+    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(32, 10, lr, 1));
     model.add::<Box<dyn Layer>>(layer);
 
     // Define the callback function to print the weights
@@ -96,8 +99,7 @@ fn main() {
             // layer.print();
         }
     };
-    let epochs = 10;
-    let interval = 2000;
+
     model.fit(&x_train, &y_train, epochs, interval, print_weights_callback);
 
     println!("Final Weights:");
