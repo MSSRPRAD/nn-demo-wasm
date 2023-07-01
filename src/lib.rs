@@ -1,6 +1,17 @@
 // lib.rs
 pub mod nn {
+    #[no_mangle]
+    pub fn multiply_elements(matrix: &Vec<Vec<f64>>, factor: f64) -> Vec<Vec<f64>> {
+        let mut result = matrix.clone(); // Create a clone of the matrix
 
+        for row in result.iter_mut() {
+            for element in row.iter_mut() {
+                *element *= factor;
+            }
+        }
+
+        result // Return the modified matrix
+    }
     #[no_mangle]
     pub fn mul(matrix_a: &Vec<Vec<f64>>, num: f64) -> Vec<Vec<f64>> {
         let mut result = Vec::with_capacity(matrix_a.len());
@@ -167,6 +178,23 @@ pub mod nn {
         result
     }
     #[no_mangle]
+    pub fn predict(vector: &Vec<Vec<f64>>, rows: usize, cols: usize) -> Vec<Vec<f64>> {
+        let mut result = vec![vec![0.0; cols]; rows];
+
+        for i in 0..rows {
+            let max_index = vector[i]
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(index, _)| index);
+            if let Some(index) = max_index {
+                result[i][index] = 1.0;
+            }
+        }
+
+        result
+    }
+    #[no_mangle]
     pub fn apply_activation(
         vector: &Vec<Vec<f64>>,
         rows: usize,
@@ -242,6 +270,9 @@ pub mod nn {
 
     #[derive(Clone, Debug)]
     pub struct DenseLayer {
+        batch_length: usize,
+        batch_count: usize,
+        output_errors_avg: Vec<Vec<f64>>,
         weights: Vec<Vec<f64>>,
         biases: Vec<Vec<f64>>,
         inputs: Vec<Vec<f64>>,
@@ -254,6 +285,7 @@ pub mod nn {
         lr: f64,
         activation: Activation,
     }
+    use rand::prelude::*;
     impl DenseLayer {
         // weights is an array of input_size rows and output_size columns
         // i-th row j-th column is the weight connecting i-th input neuron to j-th output neuron
@@ -262,21 +294,25 @@ pub mod nn {
             output_size: usize,
             lr: f64,
             activation: usize,
+            batch_length: usize,
         ) -> DenseLayer {
             DenseLayer {
                 input_size,
                 output_size,
                 lr,
+                batch_length,
+                batch_count: 0,
+                output_errors_avg: vec![vec![0.0; output_size]],
                 input_errors: vec![vec![0.0; input_size]],
                 output_errors: vec![vec![0.0; output_size]],
                 inputs: vec![vec![0.0; input_size]],
                 outputs: vec![vec![0.0; output_size]],
                 activations: vec![vec![0.0; output_size]],
                 activation: Activation::from_int(activation).unwrap(),
-                weights: vec![vec![0.0; output_size]; input_size],
-                biases: vec![vec![0.0; output_size]],
+                weights: vec![vec![thread_rng().gen(); output_size]; input_size],
+                biases: vec![vec![thread_rng().gen(); output_size]],
             }
-        }
+        }        
     }
     // input: 1x10
     // output: 1x2
@@ -320,38 +356,55 @@ pub mod nn {
         // self.inputs: 1x256
         // self.weights:
         fn backward(&mut self, output_errors: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
-            // println!("starting backward!");
-            self.output_errors = output_errors.clone();
-            // [IS,OS]x[OS,1] = [IS,1]
-            let intermediate = transpose(
-                &matmul(
-                    &self.weights,
-                    self.input_size,
-                    self.output_size,
-                    &transpose(&output_errors),
-                    self.output_size,
-                    1,
-                )
-                .unwrap(),
-            );
-
-            self.input_errors = pairwisemul(
-                &activation_derivative(&self.inputs, 1, self.input_size, self.activation),
-                &intermediate,
+            println!("starting backward!");
+            println!("output_errors: {:?}", output_errors);
+            self.output_errors = pairwisemul(&activation_derivative(&self.activations, 1, self.output_size, self.activation), &output_errors, 1, self.output_size);
+            println!("output_errors (after ac_der): {:?}", self.output_errors);
+            self.input_errors = matmul(&self.output_errors, 1, self.output_size, &transpose(&self.weights), self.output_size, self.input_size).unwrap();
+            println!("self.input_errors: {:?}", self.input_errors);
+            self.batch_count += 1;
+            // println!("adding to self.output_errors_avg...");
+            // println!("output_errors: {:?}", self.output_errors);
+            // println!("output_errors_avg: {:?}", self.output_errors_avg);
+            self.output_errors_avg = matadd(
+                &self.output_errors_avg,
+                &self.output_errors,
                 1,
-                self.input_size,
+                self.output_size,
             );
+            println!("self.output_errors_avg (self.batch_count = {:?}) : {:?}", self.batch_count, self.output_errors_avg);
+            if self.batch_count == self.batch_length {
+                println!("before updating, weights: {:?}", self.weights);
+                println!("self.output_errors_avg: {:?}", self.output_errors_avg);
+                self.update_weights();
+                println!("after updating, weights: {:?}", self.weights);
+            }
 
+            // println!("weight errors: {:?}", weight_errors);
+            // println!("weights: {:?}", self.weights);
+            // println!("difference in weights: {:?}", matsub(&initial_weights, &self.weights, self.input_size, self.output_size));
+            println!("return from backward_propogation: {:?}", self.input_errors);
+            self.input_errors.clone()
+        }
+    }
+    impl DenseLayer {
+        pub fn update_weights(&mut self) -> () {
+            println!("updating weights...");
+            self.output_errors_avg =
+                multiply_elements(&self.output_errors_avg, 1.0 / (self.batch_length as f64));
+            self.batch_count = 0;
+            println!("self.output_errors_avg: {:?}", self.output_errors_avg);
+            println!("self.inputs: {:?}", self.inputs);
             let weight_errors = matmul(
                 &transpose(&self.inputs),
                 self.input_size,
                 1,
-                &output_errors,
+                &self.output_errors_avg,
                 1,
                 self.output_size,
             )
             .unwrap();
-            // println!("weight errors: {:?}", weight_errors);
+            println!("weight errors: {:?}", weight_errors);
             // let initial_weights = self.weights.clone();
             self.weights = matsub_lr(
                 &self.weights,
@@ -362,14 +415,20 @@ pub mod nn {
             );
             // println!("weights: {:?}", self.weights);
             // println!("difference in weights: {:?}", matsub(&initial_weights, &self.weights, self.input_size, self.output_size));
-            self.biases = matsub_lr(&self.biases, &output_errors, 1, self.output_size, self.lr);
-            self.input_errors.clone()
+            self.biases = matsub_lr(
+                &self.biases,
+                &self.output_errors_avg,
+                1,
+                self.output_size,
+                self.lr,
+            );
+            self.output_errors_avg = vec![vec![0.0; self.output_size]];
         }
     }
-
     pub struct NeuralNetwork {
         pub layers: Vec<Box<dyn Layer>>,
         pub loss: Vec<f64>,
+        pub use_binary: bool,
     }
     #[no_mangle]
     pub fn mean_square_error(expected: &Vec<Vec<f64>>, predicted: &Vec<Vec<f64>>) -> f64 {
@@ -407,10 +466,11 @@ pub mod nn {
     }
 
     impl NeuralNetwork {
-        pub fn new() -> NeuralNetwork {
+        pub fn new(use_binary: bool) -> NeuralNetwork {
             NeuralNetwork {
                 layers: Vec::new(),
                 loss: Vec::new(),
+                use_binary,
             }
         }
         pub fn add<F>(&mut self, layer: Box<dyn Layer>) -> &mut Self {
@@ -437,10 +497,10 @@ pub mod nn {
         {
             for i in 0..epochs {
                 let mut misclassifications = 0;
-                println!("epochs: {}", i);
+                // println!("epochs: {}", i);
                 // Go through all the tuples
                 for j in 0..x_train.len() {
-                    let actual = vec![y_train[j].clone()]; 
+                    let actual = vec![y_train[j].clone()];
                     let mut errors: Vec<Vec<f64>> = vec![vec![0.0; actual[0].len()]];
 
                     // println!("errors: {:?}", errors);
@@ -452,7 +512,7 @@ pub mod nn {
                     for layer in &mut self.layers {
                         output = layer.forward(&output);
                     }
-                    
+
                     // Calculate the error at the end
                     errors = matsub(&output, &actual, actual.len(), actual[0].len());
 
@@ -460,25 +520,38 @@ pub mod nn {
                     // Store the loss
 
                     self.loss.push(mean_square_error(&output, &actual));
-                    let predicted = apply_activation(
-                        &output,
-                        actual.len(),
-                        actual[0].len(),
-                        Activation::BinaryActivation,
-                    );
+                    let predicted;
+                    if !self.use_binary {
+                        predicted = predict(&output, actual.len(), actual[0].len());
+                    } else {
+                        predicted = apply_activation(
+                            &output,
+                            actual.len(),
+                            actual[0].len(),
+                            Activation::BinaryActivation,
+                        );
+                    }
                     // println!("output: {:?}", output);
                     // println!("predicted: {:?}", predicted);
                     // println!("actual: {:?}", actual);
+                    // println!("self.weights: {:?}", self.weights);
                     if !are_equal(&predicted, &actual) {
+                        // println!("errors: {:?}", errors);
                         misclassifications += 1;
                     }
 
                     if (j + 1) % interval == 0 {
                         callback(self);
+                        println!("tuple: {:?}", x_train[j].clone());
+                        println!("output: {:?}", output);
+                        println!("predicted: {:?}", predicted);
+                        println!("actual: {:?}", actual);
+
                         println!("images processed: {}", j);
                         println!("loss: {:?}", self.loss.last());
                     }
                     // Backpropagate the errors
+                    println!("errors: {:?}", errors);
                     for layer in self.layers.iter_mut().rev() {
                         // println!("errors: {:?}", errors);
                         errors = layer.backward(&errors);

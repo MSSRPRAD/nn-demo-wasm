@@ -69,29 +69,51 @@ fn read_csv_file(path: &str) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>), Box<dyn E
 
         rest_columns.push(row);
     }
-    
+
     Ok((convert_vector(first_column), convert_to_ones(rest_columns)))
 }
 
 fn main() {
+    // let x_train: Vec<Vec<f64>> = vec![
+    //     vec![0.0, 0.0],
+    //     vec![0.0, 1.0],
+    //     vec![1.0, 0.0],
+    //     vec![1.0, 1.0],
+    // ];
+    //
+    // let y_train: Vec<Vec<f64>> = vec![
+    //     vec![1.0, 0.0],
+    //     vec![0.0, 1.0],
+    //     vec![0.0, 1.0],
+    //     vec![1.0, 0.0],
+    // ];
     let (y_train, x_train) = read_csv_file("./mnist/mnist_train.csv").unwrap();
-    println!("len: {:?}", y_train.len());
-    println!("len: {:?}", y_train[0].len());
-    println!("len: {:?}", x_train.len());
-    println!("len: {:?}", x_train[0].len());
+    println!("y_train.len(): {:?}", y_train.len());
+    println!("y_train[0].len(): {:?}", y_train[0].len());
+    println!("x_train.len(): {:?}", x_train.len());
+    println!("x_train[0].len(): {:?}", x_train[0].len());
     // println!("x_train[0]: {:?}", x_train[0]);
     // println!("y_train[0]: {:?}", y_train[0]);
     // println!("x_train[1]: {:?}", x_train[1]);
     // println!("y_train[1]: {:?}", y_train[1]);
-    //
-    let epochs = 50;
-    let interval = 30000;
-    let lr = 0.1;
-    let mut model = NeuralNetwork::new();
-    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 32, lr, 1));
+
+    let epochs = 5;
+    let interval = 100;
+    let lr = 0.001;
+    let activation = 0;
+    let batch_size = 100;
+    let use_binary = true;
+    let mut model = NeuralNetwork::new(use_binary);
+    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 10, lr, activation, batch_size));
     model.add::<Box<dyn Layer>>(layer);
-    let layer: Box<dyn Layer> = Box::new(DenseLayer::new(32, 10, lr, 1));
-    model.add::<Box<dyn Layer>>(layer);
+    // let layer: Box<dyn Layer> = Box::new(DenseLayer::new(4, 2, lr, activation, batch_size));
+    // model.add::<Box<dyn Layer>>(layer);
+    // let layer: Box<dyn Layer> = Box::new(DenseLayer::new(784, 10, lr, activation, batch_size));
+    // model.add::<Box<dyn Layer>>(layer);
+    // let layer: Box<dyn Layer> = Box::new(DenseLayer::new(128, 64, lr, activation, batch_size));
+    // model.add::<Box<dyn Layer>>(layer);
+    // let layer: Box<dyn Layer> = Box::new(DenseLayer::new(64, 10, lr, activation, batch_size));
+    // model.add::<Box<dyn Layer>>(layer);
 
     // Define the callback function to print the weights
     let print_weights_callback = |model: &NeuralNetwork| {
@@ -102,6 +124,6 @@ fn main() {
 
     model.fit(&x_train, &y_train, epochs, interval, print_weights_callback);
 
-    println!("Final Weights:");
-    println!("{:?}\n{:?}", model.layers[0].print(), model.layers[1].print());
+    // println!("Final Weights:");
+    // println!("{:?}\n{:?}", model.layers[0].print(), model.layers[1].print());
 }
